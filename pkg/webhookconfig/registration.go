@@ -272,10 +272,10 @@ func (wrc *Register) ValidateWebhookConfigurations(namespace, name string) error
 	return json.Unmarshal([]byte(webhooks), &webhookCfgs)
 }
 
-// cleanupKyvernoResource returns true if Kyverno deployment is terminating
+// cleanupKyvernoResource returns true if Kyverno lease is terminating
 func (wrc *Register) cleanupKyvernoResource() bool {
 	logger := wrc.log.WithName("cleanupKyvernoResource")
-	deploy, err := wrc.client.GetResource("", "Deployment", deployNamespace, deployName)
+	deploy, err := wrc.client.GetResource("", "Deployment", config.KyvernoNamespace, config.KyvernoDeploymentName)
 	if err != nil {
 		if errorsapi.IsNotFound(err) {
 			logger.Info("Kyverno deployment not found, cleanup Kyverno resources")
@@ -516,6 +516,26 @@ func getPolicyValidatingWebhookConfigurationName(serverIP string) string {
 }
 
 func (wrc *Register) constructVerifyMutatingWebhookConfig(caData []byte) *admregapi.MutatingWebhookConfiguration {
+	genWebHook := generateMutatingWebhook(
+		config.VerifyMutatingWebhookName,
+		config.VerifyMutatingWebhookServicePath,
+		caData,
+		true,
+		wrc.timeoutSeconds,
+		admregapi.Rule{
+			Resources:   []string{"leases"},
+			APIGroups:   []string{"coordination.k8s.io"},
+			APIVersions: []string{"v1"},
+		},
+		[]admregapi.OperationType{admregapi.Update},
+		admregapi.Ignore,
+	)
+
+	genWebHook.ObjectSelector = &v1.LabelSelector{
+		MatchLabels: map[string]string{
+			"app.kubernetes.io/name": "kyverno",
+		},
+	}
 	return &admregapi.MutatingWebhookConfiguration{
 		ObjectMeta: v1.ObjectMeta{
 			Name: config.VerifyMutatingWebhookConfigurationName,
@@ -524,6 +544,7 @@ func (wrc *Register) constructVerifyMutatingWebhookConfig(caData []byte) *admreg
 			},
 		},
 		Webhooks: []admregapi.MutatingWebhook{
+<<<<<<< HEAD
 			generateMutatingWebhook(
 				config.VerifyMutatingWebhookName,
 				config.VerifyMutatingWebhookServicePath,
@@ -538,6 +559,9 @@ func (wrc *Register) constructVerifyMutatingWebhookConfig(caData []byte) *admreg
 				[]admregapi.OperationType{admregapi.Update},
 				admregapi.Ignore,
 			),
+=======
+			genWebHook,
+>>>>>>> e303dddf8... adds lease objects for storing last-request-time and set-status annotations in deployment (#3447)
 		},
 	}
 }
@@ -546,11 +570,31 @@ func (wrc *Register) constructDebugVerifyMutatingWebhookConfig(caData []byte) *a
 	logger := wrc.log
 	url := fmt.Sprintf("https://%s%s", wrc.serverIP, config.VerifyMutatingWebhookServicePath)
 	logger.V(4).Info("Debug VerifyMutatingWebhookConfig is registered with url", "url", url)
+	genWebHook := generateDebugMutatingWebhook(
+		config.VerifyMutatingWebhookName,
+		url,
+		caData,
+		true,
+		wrc.timeoutSeconds,
+		admregapi.Rule{
+			Resources:   []string{"leases"},
+			APIGroups:   []string{"coordination.k8s.io"},
+			APIVersions: []string{"v1"},
+		},
+		[]admregapi.OperationType{admregapi.Update},
+		admregapi.Ignore,
+	)
+	genWebHook.ObjectSelector = &v1.LabelSelector{
+		MatchLabels: map[string]string{
+			"app.kubernetes.io/name": "kyverno",
+		},
+	}
 	return &admregapi.MutatingWebhookConfiguration{
 		ObjectMeta: v1.ObjectMeta{
 			Name: config.VerifyMutatingWebhookConfigurationDebugName,
 		},
 		Webhooks: []admregapi.MutatingWebhook{
+<<<<<<< HEAD
 			generateDebugMutatingWebhook(
 				config.VerifyMutatingWebhookName,
 				url,
@@ -565,6 +609,9 @@ func (wrc *Register) constructDebugVerifyMutatingWebhookConfig(caData []byte) *a
 				[]admregapi.OperationType{admregapi.Update},
 				admregapi.Ignore,
 			),
+=======
+			genWebHook,
+>>>>>>> e303dddf8... adds lease objects for storing last-request-time and set-status annotations in deployment (#3447)
 		},
 	}
 }
